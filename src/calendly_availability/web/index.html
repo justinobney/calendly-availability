@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Availability calendar</title>
+    <link rel="stylesheet" href="/app.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="product-name">Availability</p>
+          <h1 id="ownerName">Calendar</h1>
+          <p id="summary" class="summary">Loading calendar data</p>
+        </div>
+        <div class="header-actions">
+          <button id="overlayToggle" class="button secondary" type="button" disabled>Hide my calendar</button>
+          <button id="doneButton" class="button secondary" type="button">Done</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="calendar-toolbar" aria-label="Calendar controls">
+          <div class="date-controls">
+            <button id="previousWeek" class="icon-button" type="button" aria-label="Previous week" disabled>‹</button>
+            <button id="todayButton" class="button secondary" type="button" disabled>First available</button>
+            <button id="nextWeek" class="icon-button" type="button" aria-label="Next week" disabled>›</button>
+          </div>
+          <h2 id="weekLabel">Loading</h2>
+          <div id="legend" class="legend" aria-label="Calendar legend"></div>
+        </section>
+
+        <div id="notice" class="notice" role="status">
+          <div class="skeleton-line wide"></div>
+          <div class="skeleton-line"></div>
+        </div>
+
+        <section id="calendarRegion" class="calendar-region" aria-label="Availability calendar" hidden>
+          <div id="calendar" class="calendar"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+    <aside id="detailDrawer" class="detail-drawer" aria-labelledby="drawerTitle" aria-hidden="true">
+      <div class="drawer-header">
+        <div>
+          <p class="drawer-kicker">Booking choices</p>
+          <h2 id="drawerTitle">Choose a start</h2>
+          <p id="drawerRange" class="drawer-range"></p>
+        </div>
+        <button id="closeDrawer" class="icon-button" type="button" aria-label="Close booking choices">×</button>
+      </div>
+      <div class="drawer-filter">
+        <label for="durationFilter">Meeting length</label>
+        <select id="durationFilter">
+          <option value="any">Any length</option>
+        </select>
+      </div>
+      <div id="drawerContent" class="drawer-content"></div>
+    </aside>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

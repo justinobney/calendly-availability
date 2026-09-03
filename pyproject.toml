@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calendly-unified-availability"
+version = "0.1.0"
+description = "Combine a public Calendly profile into one local calendar and overlay your own schedule."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Office/Business :: Scheduling",
+]
+dependencies = []
+
+[project.scripts]
+calendly-availability = "calendly_availability.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+calendly_availability = ["web/*.html", "web/*.css", "web/*.js"]

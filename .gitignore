@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Calendar and availability exports may contain personal scheduling data.
+*.ics
+*-availability-*.csv
+calendar-overlay.local.json
