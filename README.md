@@ -21,6 +21,7 @@ Your own calendar can be overlaid through a small local JSON interface. Event ti
 ## Requirements
 
 - Python 3.9 or newer
+- macOS or Linux
 - No runtime dependencies
 
 ## Install for development
@@ -129,4 +130,8 @@ GitHub Actions runs the same checks on Python 3.9, 3.11, and 3.13 for every push
 
 ## Project status
 
-This is an alpha built around public Calendly behavior. Before publishing broadly, choose an open-source license and add a remote repository URL.
+This is an alpha built around public Calendly behavior. Windows is not currently supported.
+
+## License
+
+[MIT](LICENSE) © 2026 Justin Obney

@@ -8,14 +8,22 @@ version = "0.1.0"
 description = "Combine a public Calendly profile into one local calendar and overlay your own schedule."
 readme = "README.md"
 requires-python = ">=3.9"
+license = { text = "MIT" }
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Office/Business :: Scheduling",
 ]
 dependencies = []
+
+[project.urls]
+Source = "https://github.com/justinobney/calendly-availability"
+Issues = "https://github.com/justinobney/calendly-availability/issues"
 
 [project.scripts]
 calendly-availability = "calendly_availability.cli:main"
