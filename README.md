@@ -36,7 +36,7 @@ python3 -m venv .venv
 calendly-availability serve https://calendly.com/your-profile --days 45
 ```
 
-The server binds to `127.0.0.1` on a random free port and opens the browser immediately. The page reports collection progress, then replaces it with the calendar. Use **Done** in the browser or `Ctrl-C` to stop it.
+The server binds to `127.0.0.1` on a random free port and opens the browser immediately. The page reports completed request counts while collection runs, then records the final logical-request and retry totals in the populated calendar. Use **Done** in the browser or `Ctrl-C` to stop it.
 
 For a stable port:
 

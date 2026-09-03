@@ -49,6 +49,34 @@ _request_lock = threading.Lock()
 _last_request_at = 0.0
 
 
+class RequestMetrics:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.logical_requests = 0
+        self.http_attempts = 0
+        self.successful_responses = 0
+
+    def begin_request(self) -> None:
+        with self._lock:
+            self.logical_requests += 1
+
+    def begin_attempt(self) -> None:
+        with self._lock:
+            self.http_attempts += 1
+
+    def complete_attempt(self) -> None:
+        with self._lock:
+            self.successful_responses += 1
+
+    def snapshot(self) -> dict[str, int]:
+        with self._lock:
+            return {
+                "logical_requests": self.logical_requests,
+                "http_attempts": self.http_attempts,
+                "successful_responses": self.successful_responses,
+            }
+
+
 class CalendlyError(RuntimeError):
     pass
 
@@ -174,7 +202,12 @@ def profile_slug(value: str) -> str:
     return slug
 
 
-def get_json(path: str, params: dict[str, Any] | None = None, retries: int = 6) -> Any:
+def get_json(
+    path: str,
+    params: dict[str, Any] | None = None,
+    retries: int = 6,
+    metrics: RequestMetrics | None = None,
+) -> Any:
     global _last_request_at
     query = urllib.parse.urlencode(
         {key: str(value).lower() if isinstance(value, bool) else value for key, value in (params or {}).items() if value is not None}
@@ -184,6 +217,8 @@ def get_json(path: str, params: dict[str, Any] | None = None, retries: int = 6) 
         url,
         headers={"Accept": "application/json", "User-Agent": USER_AGENT},
     )
+    if metrics:
+        metrics.begin_request()
     for attempt in range(retries):
         with _request_lock:
             delay = MIN_REQUEST_INTERVAL - (time.monotonic() - _last_request_at)
@@ -191,8 +226,13 @@ def get_json(path: str, params: dict[str, Any] | None = None, retries: int = 6) 
                 time.sleep(delay)
             _last_request_at = time.monotonic()
         try:
+            if metrics:
+                metrics.begin_attempt()
             with urllib.request.urlopen(request, timeout=30) as response:
-                return json.load(response)
+                result = json.load(response)
+            if metrics:
+                metrics.complete_attempt()
+            return result
         except urllib.error.HTTPError as exc:
             if exc.code not in {429, 500, 502, 503, 504} or attempt == retries - 1:
                 detail = exc.read().decode("utf-8", errors="replace")[:300]
@@ -210,8 +250,15 @@ def get_json(path: str, params: dict[str, Any] | None = None, retries: int = 6) 
     raise AssertionError("unreachable")
 
 
-def discover_events(slug: str, filters: list[str]) -> list[EventType]:
-    summaries = get_json(f"/api/booking/profiles/{urllib.parse.quote(slug)}/event_types")
+def discover_events(
+    slug: str,
+    filters: list[str],
+    metrics: RequestMetrics | None = None,
+) -> list[EventType]:
+    summaries = get_json(
+        f"/api/booking/profiles/{urllib.parse.quote(slug)}/event_types",
+        metrics=metrics,
+    )
     if not isinstance(summaries, list):
         raise CalendlyError("Calendly returned an unexpected event-type response")
 
@@ -232,6 +279,7 @@ def discover_events(slug: str, filters: list[str]) -> list[EventType]:
         detail = get_json(
             "/api/booking/event_types/lookup",
             {"event_type_slug": summary["slug"], "profile_slug": slug},
+            metrics=metrics,
         )
         event_slug = detail["slug"]
         return EventType(
@@ -270,7 +318,12 @@ def exact_booking_url(event: EventType, start: datetime) -> str:
     )
 
 
-def fetch_slots(event: EventType, first: date, last: date) -> list[Slot]:
+def fetch_slots(
+    event: EventType,
+    first: date,
+    last: date,
+    metrics: RequestMetrics | None = None,
+) -> list[Slot]:
     event_zone = ZoneInfo(event.timezone)
     slots: list[Slot] = []
     for chunk_start, chunk_end in date_chunks(first, last):
@@ -284,6 +337,7 @@ def fetch_slots(event: EventType, first: date, last: date) -> list[Slot]:
                 "range_start": range_start.isoformat(),
                 "range_end": range_end.isoformat(),
             },
+            metrics=metrics,
         )
         for day in data.get("days", []):
             for item in day.get("spots", []):
@@ -303,10 +357,16 @@ def fetch_slots(event: EventType, first: date, last: date) -> list[Slot]:
     return sorted(unique.values(), key=lambda slot: slot.start)
 
 
-def fetch_all_slots(events: list[EventType], first: date, last: date, workers: int) -> list[Slot]:
+def fetch_all_slots(
+    events: list[EventType],
+    first: date,
+    last: date,
+    workers: int,
+    metrics: RequestMetrics | None = None,
+) -> list[Slot]:
     slots: list[Slot] = []
     with ThreadPoolExecutor(max_workers=max(1, min(workers, len(events)))) as pool:
-        futures = {pool.submit(fetch_slots, event, first, last): event for event in events}
+        futures = {pool.submit(fetch_slots, event, first, last, metrics): event for event in events}
         for future in as_completed(futures):
             slots.extend(future.result())
     return sorted(slots, key=lambda slot: (slot.start, slot.event.name.casefold()))
@@ -440,6 +500,7 @@ def availability_payload(
     slots: list[Slot],
     zone: ZoneInfo,
     source: str,
+    request_metrics: RequestMetrics | None = None,
 ) -> dict[str, Any]:
     grouped: dict[datetime, list[Slot]] = {}
     for slot in slots:
@@ -481,6 +542,14 @@ def availability_payload(
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": source,
+        "collection": {
+            "mode": "live" if source.startswith("calendly:") else "snapshot",
+            **(request_metrics.snapshot() if request_metrics else {
+                "logical_requests": 0,
+                "http_attempts": 0,
+                "successful_responses": 0,
+            }),
+        },
         "stats": {
             "exact_slots": len(slots),
             "unique_starts": len(starts),
@@ -532,12 +601,14 @@ class CalendarServerState:
         availability: dict[str, Any] | None,
         overlay: dict[str, Any] | None = None,
         timezone_name: str | None = None,
+        request_metrics: RequestMetrics | None = None,
     ):
         self._lock = threading.Lock()
         self.availability = availability
         self.status = "ready" if availability else "loading"
         self.error: str | None = None
         self.timezone_name = availability["timezone"] if availability else (timezone_name or "UTC")
+        self.request_metrics = request_metrics
         self.overlay = self._align_overlay(
             overlay or normalize_overlay({"label": "My calendar", "timezone": self.timezone_name, "busy": []})
         )
@@ -564,6 +635,7 @@ class CalendarServerState:
                 "availability": self.availability,
                 "overlay": self.overlay,
                 "error": self.error,
+                "collection_progress": self.request_metrics.snapshot() if self.request_metrics else None,
             }
 
     def replace_overlay(self, overlay: dict[str, Any]) -> None:
@@ -759,11 +831,12 @@ def serve_calendar(
     port: int,
     open_browser: bool,
     loader: Callable[[], dict[str, Any]] | None = None,
+    request_metrics: RequestMetrics | None = None,
 ) -> int:
     missing_assets = [name for name in ("index.html", "app.css", "app.js") if not (ASSET_DIR / name).is_file()]
     if missing_assets:
         raise CalendlyError(f"Missing calendar UI assets: {', '.join(missing_assets)}")
-    state = CalendarServerState(availability, overlay, timezone_name)
+    state = CalendarServerState(availability, overlay, timezone_name, request_metrics)
     server_ref: dict[str, http.server.ThreadingHTTPServer | None] = {"server": None}
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), calendar_handler(state, server_ref))
     server_ref["server"] = server
@@ -1006,6 +1079,7 @@ def main() -> int:
         slug = profile_slug(args.profile)
         data_path = getattr(args, "data", None)
         if args.command == "serve" and not data_path:
+            request_metrics = RequestMetrics()
             initial_timezone = args.timezone or "UTC"
             try:
                 ZoneInfo(initial_timezone)
@@ -1015,7 +1089,7 @@ def main() -> int:
             display_name = getattr(args, "name", None) or slug
 
             def load_live_availability() -> dict[str, Any]:
-                events = discover_events(slug, args.event)
+                events = discover_events(slug, args.event, request_metrics)
                 zone_name = args.timezone or events[0].timezone
                 try:
                     zone = ZoneInfo(zone_name)
@@ -1023,10 +1097,17 @@ def main() -> int:
                     raise CalendlyError(f"Unknown timezone: {zone_name}") from exc
                 first = date.fromisoformat(args.start) if args.start else datetime.now(zone).date()
                 last = first + timedelta(days=args.days - 1)
-                slots = fetch_all_slots(events, first, last, args.workers)
+                slots = fetch_all_slots(events, first, last, args.workers, request_metrics)
                 if not slots:
                     raise CalendlyError(f"No availability found between {first} and {last}")
-                return availability_payload(slug, display_name, slots, zone, f"calendly:{slug}")
+                return availability_payload(
+                    slug,
+                    display_name,
+                    slots,
+                    zone,
+                    f"calendly:{slug}",
+                    request_metrics,
+                )
 
             return serve_calendar(
                 profile=slug,
@@ -1036,6 +1117,7 @@ def main() -> int:
                 port=args.port,
                 open_browser=not args.no_open,
                 loader=load_live_availability,
+                request_metrics=request_metrics,
             )
 
         if args.command == "serve" and data_path:
@@ -1043,7 +1125,8 @@ def main() -> int:
             zone_name = args.timezone or detected_timezone
             source = f"csv:{data_path.resolve()}"
         else:
-            events = discover_events(slug, args.event)
+            request_metrics = RequestMetrics()
+            events = discover_events(slug, args.event, request_metrics)
             zone_name = args.timezone or events[0].timezone
             slots = []
             source = f"calendly:{slug}"
@@ -1055,7 +1138,7 @@ def main() -> int:
         first = date.fromisoformat(args.start) if args.start else datetime.now(zone).date()
         last = first + timedelta(days=args.days - 1)
         if not slots:
-            slots = fetch_all_slots(events, first, last, args.workers)
+            slots = fetch_all_slots(events, first, last, args.workers, request_metrics)
         else:
             slots = [
                 slot

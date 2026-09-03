@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 import tempfile
 import threading
 import time
@@ -9,6 +10,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from unittest import mock
 
 from calendly_availability import cli as MODULE
 
@@ -55,6 +57,26 @@ class AvailabilityTests(unittest.TestCase):
             "available_days": 1,
         })
         self.assertEqual(len(payload["starts"][1]["choices"]), 2)
+        self.assertEqual(payload["collection"]["mode"], "snapshot")
+
+    def test_request_metrics_distinguish_logical_requests_from_retries(self) -> None:
+        metrics = MODULE.RequestMetrics()
+        retry = MODULE.urllib.error.HTTPError(
+            "https://calendly.com/test",
+            500,
+            "test failure",
+            {},
+            BytesIO(b"temporary failure"),
+        )
+        success = BytesIO(b'{"ok": true}')
+        with mock.patch.object(MODULE.urllib.request, "urlopen", side_effect=[retry, success]), mock.patch.object(MODULE.time, "sleep"):
+            result = MODULE.get_json("/test", retries=2, metrics=metrics)
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(metrics.snapshot(), {
+            "logical_requests": 1,
+            "http_attempts": 2,
+            "successful_responses": 1,
+        })
 
     def test_overlay_accepts_optional_titles_and_rejects_reverse_ranges(self) -> None:
         overlay = MODULE.normalize_overlay({
