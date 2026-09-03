@@ -108,12 +108,7 @@ function renderLegend() {
 function renderHeader() {
   const availability = serverState.availability;
   elements.ownerName.textContent = availability.owner.name;
-  const stats = availability.stats;
-  const collection = availability.collection;
-  const sourceDetail = collection?.mode === "live"
-    ? `${collection.http_attempts} Calendly requests`
-    : "saved snapshot";
-  elements.summary.textContent = `${stats.available_days} open days, ${stats.unique_starts} start times, ${stats.event_types} booking links, ${sourceDetail}`;
+  elements.summary.textContent = "All public booking options in one calendar";
   elements.overlayToggle.disabled = false;
   elements.previousWeek.disabled = false;
   elements.todayButton.disabled = false;
@@ -321,14 +316,9 @@ async function loadState() {
     if (!response.ok) throw new Error(`Server returned ${response.status}`);
     serverState = await response.json();
     if (serverState.status === "loading") {
-      const progress = serverState.collection_progress;
-      const completed = progress?.successful_responses || 0;
-      const pending = Math.max(0, (progress?.http_attempts || 0) - completed);
       elements.summary.textContent = "Collecting public availability";
       elements.notice.classList.remove("error");
-      elements.notice.textContent = completed
-        ? `Checking each public booking link. ${completed} requests completed${pending ? `, ${pending} in flight or retrying` : ""}.`
-        : "Checking each public booking link. The calendar will appear here when collection finishes.";
+      elements.notice.textContent = "Checking each public booking link. The calendar will appear here when collection finishes.";
       setTimeout(loadState, 800);
       return;
     }

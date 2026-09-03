@@ -37,3 +37,24 @@ jobs:
 
       - name: Check installed command
         run: calendly-availability --help
+
+  video:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketing/video
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: marketing/video/package-lock.json
+
+      - name: Install video dependencies
+        run: npm ci
+
+      - name: Type-check Remotion source
+        run: npm exec tsc -- --noEmit

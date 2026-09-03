@@ -37,7 +37,7 @@ python3 -m venv .venv
 calendly-availability serve https://calendly.com/your-profile --days 45
 ```
 
-The server binds to `127.0.0.1` on a random free port and opens the browser immediately. The page reports completed request counts while collection runs, then records the final logical-request and retry totals in the populated calendar. Use **Done** in the browser or `Ctrl-C` to stop it.
+The server binds to `127.0.0.1` on a random free port and opens the browser immediately. It shows a short loading state while availability is collected, then replaces it with the unified calendar. Use **Done** in the browser or `Ctrl-C` to stop it.
 
 For a stable port:
 
@@ -93,6 +93,10 @@ next 45 days and overlay my work calendar.
 
 Each user supplies their own calendar connector and account authorization. The skill does not bundle credentials, depend on one calendar provider, or commit the resulting calendar data.
 
+## Marketing video
+
+The shareable launch video is built with Remotion from a deterministic synthetic calendar. Its source, safe captures, and local render instructions live in [`marketing/video`](marketing/video).
+
 ## Data commands
 
 ```bash
@@ -118,7 +122,7 @@ node --check src/calendly_availability/web/app.js
 
 The suite covers merged availability, exact-start choices, titled overlays, loopback enforcement, runtime discovery, HTTP behavior, and the server-first loading lifecycle.
 
-GitHub Actions runs the same checks on Python 3.9, 3.11, and 3.13 for every push and pull request.
+GitHub Actions runs the same checks on Python 3.9, 3.11, and 3.13 and type-checks the Remotion source for every push and pull request.
 
 ## Privacy and security
 

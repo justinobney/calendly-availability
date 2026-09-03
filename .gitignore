@@ -8,6 +8,8 @@ dist/
 .coverage
 htmlcov/
 .pytest_cache/
+marketing/video/node_modules/
+marketing/video/out/
 
 # Calendar and availability exports may contain personal scheduling data.
 *.ics
