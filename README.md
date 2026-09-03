@@ -72,6 +72,26 @@ The server publishes its URL in a private temporary discovery file, so the overl
 
 See [`examples/calendar-overlay.json`](examples/calendar-overlay.json) for a demo payload. Do not commit real calendar exports.
 
+## Use it as a Codex skill
+
+The repository includes a thin agent skill in [`skills/calendly-availability`](skills/calendly-availability). The CLI remains responsible for Calendly collection, merging, filtering, and the local UI; the skill teaches Codex how to launch it and adapt any available calendar connector to the private overlay contract.
+
+After installing the CLI, copy or symlink the bundled skill into your Codex skills directory:
+
+```bash
+mkdir -p ~/.codex/skills
+ln -s "$(pwd)/skills/calendly-availability" ~/.codex/skills/calendly-availability
+```
+
+Then invoke it with a prompt such as:
+
+```text
+Use $calendly-availability to open https://calendly.com/your-profile for the
+next 45 days and overlay my work calendar.
+```
+
+Each user supplies their own calendar connector and account authorization. The skill does not bundle credentials, depend on one calendar provider, or commit the resulting calendar data.
+
 ## Data commands
 
 ```bash

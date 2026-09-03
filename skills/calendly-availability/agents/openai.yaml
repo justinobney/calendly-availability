@@ -1,0 +1,4 @@
+interface:
+  display_name: "Calendly Availability"
+  short_description: "Unify public Calendly slots with your calendar"
+  default_prompt: "Use $calendly-availability to open this Calendly profile as a unified calendar and overlay my schedule."
