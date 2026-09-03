@@ -97,6 +97,8 @@ node --check src/calendly_availability/web/app.js
 
 The suite covers merged availability, exact-start choices, titled overlays, loopback enforcement, runtime discovery, HTTP behavior, and the server-first loading lifecycle.
 
+GitHub Actions runs the same checks on Python 3.9, 3.11, and 3.13 for every push and pull request.
+
 ## Privacy and security
 
 - The HTTP server listens only on the IPv4 loopback address.
